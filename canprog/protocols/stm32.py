@@ -160,7 +160,7 @@ class STM32Protocol(AbstractProtocol):
         self._recv(timeout=timeout, checker=self._check_ack(cmd))
         
     def _send_data(self, cmd, data=[]):
-        self._send(can.Message(arbitration_id=cmd, data=data, extended_id=False))
+        self._send(can.Message(arbitration_id=cmd, data=data, is_extended_id=False))
     
     def _init(self):
         self._send_data(BYTE_INIT)
@@ -310,7 +310,7 @@ class STM32Protocol(AbstractProtocol):
         for i in range(0, size, 8):
             self._send_data(BYTE_DATA, data[i:i+8])      
             self._wait_for_ack(CMD_WRITE_MEMORY)
-        
+
         self._wait_for_ack(CMD_WRITE_MEMORY)        
         
     @_check_support(CMD_READ_MEMORY)  
