@@ -21,6 +21,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 #
+import time
 
 import can
 import struct
@@ -155,7 +156,10 @@ class STM32Protocol(AbstractProtocol):
     
     def _check_ack_or_noack(self, arb_id):
         return self._check_response(arb_id, 1, (BYTE_ACK, BYTE_NOACK))
-    
+
+    def _check_for_resp(self, cmd, timeout=None):
+        return self._recv(timeout=timeout, checker=self._check_ack_or_noack(cmd))
+
     def _wait_for_ack(self, cmd, timeout=None):
         self._recv(timeout=timeout, checker=self._check_ack(cmd))
         
@@ -305,14 +309,21 @@ class STM32Protocol(AbstractProtocol):
     def _write_page(self, address, data):
         size = len(data)
         self._send_data(CMD_WRITE_MEMORY, struct.pack(">IB", address, size - 1))        
-        self._wait_for_ack(CMD_WRITE_MEMORY)
+        if self._check_for_resp(CMD_WRITE_MEMORY).data[0] != BYTE_ACK:
+            log.info('Err recover')
+            self._write_page(address,data)
         
         for i in range(0, size, 8):
-            self._send_data(BYTE_DATA, data[i:i+8])      
-            self._wait_for_ack(CMD_WRITE_MEMORY)
+            self._send_data(BYTE_DATA, data[i:i+8])
+            if self._check_for_resp(CMD_WRITE_MEMORY).data[0] != BYTE_ACK:
+                log.info('Err recover 2')
+                self._write_page(address, data)
 
-        self._wait_for_ack(CMD_WRITE_MEMORY)        
-        
+
+        if self._check_for_resp(CMD_WRITE_MEMORY).data[0] != BYTE_ACK:
+            log.info('Err recover')
+            self._write_page(address, data)
+
     @_check_support(CMD_READ_MEMORY)  
     def _read(self, address, size):
 
